@@ -39,7 +39,6 @@ public:
     HICON GetIcon(UINT id);
 
     const wchar_t* GetNextEventDisplayString();
-    const std::wstring& GetTooltipInfo() const { return m_tooltip_info; }
     void UpdateData();
     void ForceUpdate();
 
@@ -51,8 +50,6 @@ private:
 
     AppointmentInfo m_next_appointment;
     std::wstring m_display_string;
-    std::wstring m_tooltip_info;
-    int m_fetch_count{ 0 };
     std::mutex m_data_mutex;
     std::thread m_update_thread;
     std::atomic<bool> m_exit_thread{ false };

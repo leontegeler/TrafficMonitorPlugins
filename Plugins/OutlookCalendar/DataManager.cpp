@@ -185,7 +185,6 @@ void CDataManager::FetchFromOutlook()
     HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     if (FAILED(hr)) return;
 
-    std::wstring debug_info;
     try
     {
         Outlook::_ApplicationPtr pApp(L"Outlook.Application");
@@ -217,19 +216,6 @@ void CDataManager::FetchFromOutlook()
         
         AppointmentInfo next_appt;
         bool found = false;
-        long restricted_count = pRestrictedItems->Count;
-
-        m_fetch_count++;
-        debug_info = L"Fetch count: ";
-        debug_info += std::to_wstring(m_fetch_count);
-        debug_info += L"\nLast fetch: ";
-        wchar_t time_buf[64];
-        wcsftime(time_buf, 64, L"%H:%M:%S", &tm_now);
-        debug_info += time_buf;
-        debug_info += L"\nTotal in folder: ";
-        debug_info += std::to_wstring(pItems->Count);
-        debug_info += L"\nRestricted: ";
-        debug_info += std::to_wstring(restricted_count);
 
         Outlook::_AppointmentItemPtr pAppt = pRestrictedItems->GetFirst();
         int checked = 0;
@@ -258,22 +244,10 @@ void CDataManager::FetchFromOutlook()
 
         std::lock_guard<std::mutex> lock(m_data_mutex);
         m_next_appointment = next_appt;
-        m_tooltip_info = debug_info;
-        if (found)
-        {
-            m_tooltip_info += L"\nNext: ";
-            m_tooltip_info += m_next_appointment.subject;
-        }
-        else
-        {
-            m_tooltip_info += L"\n(No events found)";
-        }
     }
-    catch (_com_error& e)
+    catch (_com_error&)
     {
         std::lock_guard<std::mutex> lock(m_data_mutex);
-        m_tooltip_info = L"COM Error: ";
-        m_tooltip_info += e.ErrorMessage();
         m_next_appointment.has_event = false;
     }
 

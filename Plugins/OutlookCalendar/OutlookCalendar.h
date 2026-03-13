@@ -27,7 +27,6 @@ private:
 private:
     static COutlookCalendar m_instance;
     COutlookCalendarItem m_item;
-    std::wstring m_tooltip_info;
 };
 
 #ifdef __cplusplus

@@ -28,7 +28,7 @@ IPluginItem* COutlookCalendar::GetItem(int index)
 
 const wchar_t* COutlookCalendar::GetTooltipInfo()
 {
-    return g_data.GetTooltipInfo().c_str();
+    return L"";
 }
 
 void COutlookCalendar::DataRequired()
