@@ -59,13 +59,13 @@ void CVpn::DataRequired()
                 {
                     // This case should ideally not be reached if the first call indicated a buffer was needed,
                     // but we handle it just in case.
-                    m_item.SetText(L"Disonnected");
+                    m_item.SetText(L"");
                 }
             }
             else
             {
                 // The second call to RasEnumConnections failed.
-                m_item.SetText(L"Error: Enum failed");
+                m_item.SetText(L"");
             }
 
             // Free the allocated memory.
@@ -74,18 +74,18 @@ void CVpn::DataRequired()
         else
         {
             // Memory allocation failed.
-            m_item.SetText(L"Error: Mem alloc");
+            m_item.SetText(L"");
         }
     }
     else if (dwRet == ERROR_SUCCESS)
     {
         // If the function succeeds on the first call, it means there are no active connections.
-        m_item.SetText(L"Disonnected");
+        m_item.SetText(L"");
     }
     else
     {
         // An unexpected error occurred.
-        m_item.SetText((L"Error: " + std::to_wstring(dwRet)).c_str());
+        m_item.SetText(L"");
     }
 }
 

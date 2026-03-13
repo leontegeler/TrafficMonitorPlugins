@@ -32,7 +32,7 @@ IPluginItem* CNowPlaying::GetItem(int index)
 
 const wchar_t* CNowPlaying::GetTooltipInfo()
 {
-    return m_tooltip_info.c_str();
+    return L" ";
 }
 
 void CNowPlaying::InitializeMediaSessionManager()
@@ -248,7 +248,8 @@ void CNowPlaying::UpdateMediaInfo()
         InitializeMediaSessionManager();
         if (!m_initialized)
         {
-            m_item.SetMediaInfo(L"", L"", nullptr);
+            m_item.SetMediaInfo(L"", L"", nullptr, CNowPlayingItem::PlaybackStatus::Stopped);
+            m_tooltip_info.clear();
             return;
         }
     }
@@ -259,17 +260,29 @@ void CNowPlaying::UpdateMediaInfo()
 
         if (current_session == nullptr)
         {
-            m_item.SetMediaInfo(L"", L"", nullptr);
-            m_tooltip_info = L"No media session";
+            m_item.SetMediaInfo(L"", L"", nullptr, CNowPlayingItem::PlaybackStatus::Stopped);
+            m_tooltip_info.clear();
             return;
+        }
+
+        // Get playback status
+        CNowPlayingItem::PlaybackStatus status = CNowPlayingItem::PlaybackStatus::Stopped;
+        auto playback_info = current_session.GetPlaybackInfo();
+        if (playback_info != nullptr)
+        {
+            auto winrt_status = playback_info.PlaybackStatus();
+            if (winrt_status == winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing)
+                status = CNowPlayingItem::PlaybackStatus::Playing;
+            else if (winrt_status == winrt::Windows::Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus::Paused)
+                status = CNowPlayingItem::PlaybackStatus::Paused;
         }
 
         auto media_properties = current_session.TryGetMediaPropertiesAsync().get();
 
         if (media_properties == nullptr)
         {
-            m_item.SetMediaInfo(L"", L"", nullptr);
-            m_tooltip_info = L"No media properties";
+            m_item.SetMediaInfo(L"", L"", nullptr, status);
+            m_tooltip_info.clear();
             return;
         }
 
@@ -285,21 +298,15 @@ void CNowPlaying::UpdateMediaInfo()
             hThumbnail = LoadThumbnailFromStream(thumbnail);
         }
 
-        m_item.SetMediaInfo(artist, title, hThumbnail);
+        m_item.SetMediaInfo(artist, title, hThumbnail, status);
 
         // Build tooltip with more details
         m_tooltip_info.clear();
-        if (!title.empty())
-            m_tooltip_info += L"Title: " + title + L"\n";
-        if (!artist.empty())
-            m_tooltip_info += L"Artist: " + artist + L"\n";
-        if (!album.empty())
-            m_tooltip_info += L"Album: " + album;
     }
     catch (...)
     {
-        m_item.SetMediaInfo(L"", L"", nullptr);
-        m_tooltip_info = L"Error reading media info";
+        m_item.SetMediaInfo(L"", L"", nullptr, CNowPlayingItem::PlaybackStatus::Stopped);
+        m_tooltip_info.clear();
     }
 }
 

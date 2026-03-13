@@ -31,14 +31,18 @@ const wchar_t* CNowPlayingItem::GetItemId() const
 
 const wchar_t* CNowPlayingItem::GetItemLableText() const
 {
-    return L"Now playing:";
+    if (m_playback_status == PlaybackStatus::Playing)
+        return L"\u23F5 ";
+    if (m_playback_status == PlaybackStatus::Paused)
+        return L"\u23F8 ";
+    return L"";
 }
 
 const wchar_t* CNowPlayingItem::GetItemValueText() const
 {
-    if (m_artist.empty() && m_title.empty())
+    if (m_playback_status == PlaybackStatus::Stopped || (m_artist.empty() && m_title.empty()))
     {
-        return L"No media";
+        return L"";
     }
 
     m_full_text.clear();
@@ -69,9 +73,25 @@ bool CNowPlayingItem::IsCustomDraw() const
 
 int CNowPlayingItem::GetItemWidthEx(void* hDC) const
 {
+    std::wstring label = GetItemLableText();
+    std::wstring text = GetItemValueText();
+    if (label.empty() && text.empty())
+        return 0;
+
     CDC* pDC = CDC::FromHandle((HDC)hDC);
-    CSize label_size = pDC->GetTextExtent(L"Now playing: ", 13);
-    return label_size.cx + 150;
+    CSize label_size = { 0, 0 };
+    if (!label.empty())
+    {
+        CFont font;
+        LOGFONT lf;
+        pDC->GetCurrentFont()->GetLogFont(&lf);
+        wcscpy_s(lf.lfFaceName, L"Segoe UI Symbol");
+        font.CreateFontIndirect(&lf);
+        CFont* pOldFont = pDC->SelectObject(&font);
+        label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
+        pDC->SelectObject(pOldFont);
+    }
+    return label_size.cx + (text.empty() ? 0 : 150);
 }
 
 void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_mode)
@@ -83,11 +103,24 @@ void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_
     pDC->SetTextColor(textColor);
     pDC->SetBkMode(TRANSPARENT);
 
-    // 1. Draw static label
-    std::wstring label = L"Now playing: ";
-    CSize label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
-    CRect label_rect(x, y, x + label_size.cx, y + h);
-    pDC->DrawText(label.c_str(), -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    // 1. Draw static label (icon)
+    std::wstring label = GetItemLableText();
+    CSize label_size = { 0, 0 };
+    if (!label.empty())
+    {
+        CFont font;
+        LOGFONT lf;
+        pDC->GetCurrentFont()->GetLogFont(&lf);
+        wcscpy_s(lf.lfFaceName, L"Segoe UI Symbol");
+        font.CreateFontIndirect(&lf);
+        CFont* pOldFont = pDC->SelectObject(&font);
+
+        label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
+        CRect label_rect(x, y, x + label_size.cx, y + h);
+        pDC->DrawText(label.c_str(), -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+        pDC->SelectObject(pOldFont);
+    }
 
     // 2. Draw scrolling value
     std::wstring text = GetItemValueText();
@@ -104,24 +137,52 @@ void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_
         // No scrolling needed
         pDC->DrawText(text.c_str(), -1, &value_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         m_scroll_offset = 0;
+        m_scroll_reverse = false;
+        m_pause_end_time = 0;
     }
     else
     {
-        // Marquee scrolling logic
+        // Ping-pong scrolling logic
         DWORD now = GetTickCount();
         if (m_last_scroll_time == 0) m_last_scroll_time = now;
 
-        if (now - m_last_scroll_time > 16) // 60 FPS
+        if (now >= m_pause_end_time)
         {
-            m_scroll_offset += 1;
-            if (m_scroll_offset > text_size.cx - value_w + 30)
+            if (now - m_last_scroll_time > 16) // ~60 FPS
             {
-                m_scroll_offset = -30;
+                int max_scroll = text_size.cx - value_w;
+                const DWORD pause_duration = 1500; // 1.5s pause
+
+                if (!m_scroll_reverse)
+                {
+                    m_scroll_offset++;
+                    if (m_scroll_offset >= max_scroll)
+                    {
+                        m_scroll_offset = max_scroll;
+                        m_scroll_reverse = true;
+                        m_pause_end_time = now + pause_duration;
+                    }
+                }
+                else
+                {
+                    m_scroll_offset--;
+                    if (m_scroll_offset <= 0)
+                    {
+                        m_scroll_offset = 0;
+                        m_scroll_reverse = false;
+                        m_pause_end_time = now + pause_duration;
+                    }
+                }
+                m_last_scroll_time = now;
             }
+        }
+        else
+        {
+            // During pause, just update last scroll time to avoid sudden jump after pause
             m_last_scroll_time = now;
         }
 
-        int draw_x = value_x - (m_scroll_offset < 0 ? 0 : m_scroll_offset);
+        int draw_x = value_x - m_scroll_offset;
 
         // Clip the drawing area to the value part only
         int save_dc = pDC->SaveDC();
@@ -135,14 +196,15 @@ void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_
     }
 }
 
-void CNowPlayingItem::SetMediaInfo(const std::wstring& artist, const std::wstring& title, HBITMAP hThumbnail)
+void CNowPlayingItem::SetMediaInfo(const std::wstring& artist, const std::wstring& title, HBITMAP hThumbnail, PlaybackStatus status)
 {
-    if (m_artist != artist || m_title != title)
+    if (m_artist != artist || m_title != title || m_playback_status != status)
     {
         m_scroll_offset = 0;
     }
     m_artist = artist;
     m_title = title;
+    m_playback_status = status;
     
     if (m_thumbnail)
     {

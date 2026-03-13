@@ -5,6 +5,13 @@
 class CNowPlayingItem : public IPluginItem
 {
 public:
+    enum class PlaybackStatus
+    {
+        Stopped,
+        Playing,
+        Paused
+    };
+
     CNowPlayingItem();
     ~CNowPlayingItem();
 
@@ -17,7 +24,7 @@ public:
     virtual int GetItemWidthEx(void* hDC) const override;
     virtual void DrawItem(void* hDC, int x, int y, int w, int h, bool dark_mode) override;
 
-    void SetMediaInfo(const std::wstring& artist, const std::wstring& title, HBITMAP hThumbnail);
+    void SetMediaInfo(const std::wstring& artist, const std::wstring& title, HBITMAP hThumbnail, PlaybackStatus status);
 
 private:
     mutable std::wstring m_display_text;
@@ -25,9 +32,12 @@ private:
     std::wstring m_title;
     HBITMAP m_thumbnail;
     int m_thumbnail_size;
+    PlaybackStatus m_playback_status{ PlaybackStatus::Stopped };
     
     // Scrolling state
     mutable int m_scroll_offset{ 0 };
     mutable DWORD m_last_scroll_time{ 0 };
     mutable std::wstring m_full_text;
+    mutable bool m_scroll_reverse{ false };
+    mutable DWORD m_pause_end_time{ 0 };
 };

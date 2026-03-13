@@ -19,8 +19,11 @@ public:
 
 public:
     std::wstring m_value;
+    mutable std::wstring m_display_text;
 
 private:
     mutable int m_scroll_offset{ 0 };
     mutable DWORD m_last_scroll_time{ 0 };
+    mutable bool m_scroll_reverse{ false };
+    mutable DWORD m_pause_end_time{ 0 };
 };

@@ -73,24 +73,51 @@ void COutlookCalendarItem::DrawItem(void* hDC, int x, int y, int w, int h, bool 
         // No scrolling needed
         pDC->DrawText(text.c_str(), -1, &value_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
         m_scroll_offset = 0;
+        m_scroll_reverse = false;
+        m_pause_end_time = 0;
     }
     else
     {
-        // Marquee scrolling logic
+        // Ping-pong scrolling logic at ~60 FPS
         DWORD now = GetTickCount();
         if (m_last_scroll_time == 0) m_last_scroll_time = now;
 
-        if (now - m_last_scroll_time > 16) // Update every 16ms for ~60 FPS
+        if (now >= m_pause_end_time)
         {
-            m_scroll_offset += 1; // Move by 1 pixel for smoother steps
-            if (m_scroll_offset > text_size.cx - value_w + 30) // End reached + gap
+            if (now - m_last_scroll_time > 16)
             {
-                m_scroll_offset = -40; // Jump back with delay
+                int max_scroll = text_size.cx - value_w;
+                const DWORD pause_duration = 1500; // 1.5s pause
+
+                if (!m_scroll_reverse)
+                {
+                    m_scroll_offset++;
+                    if (m_scroll_offset >= max_scroll)
+                    {
+                        m_scroll_offset = max_scroll;
+                        m_scroll_reverse = true;
+                        m_pause_end_time = now + pause_duration;
+                    }
+                }
+                else
+                {
+                    m_scroll_offset--;
+                    if (m_scroll_offset <= 0)
+                    {
+                        m_scroll_offset = 0;
+                        m_scroll_reverse = false;
+                        m_pause_end_time = now + pause_duration;
+                    }
+                }
+                m_last_scroll_time = now;
             }
+        }
+        else
+        {
             m_last_scroll_time = now;
         }
 
-        int draw_x = value_x - (m_scroll_offset < 0 ? 0 : m_scroll_offset);
+        int draw_x = value_x - m_scroll_offset;
 
         // Clip the drawing area to the value part only
         int save_dc = pDC->SaveDC();
