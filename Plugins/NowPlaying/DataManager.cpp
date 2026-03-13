@@ -21,29 +21,6 @@ CDataManager& CDataManager::Instance()
     return m_instance;
 }
 
-void CDataManager::LoadConfig(const std::wstring& config_dir)
-{
-    m_config_path = config_dir + L"NowPlaying.ini";
-
-    utilities::CIniHelper ini(m_config_path);
-    m_setting_data.show_artist = ini.GetBool(L"settings", L"show_artist", true);
-    m_setting_data.show_title = ini.GetBool(L"settings", L"show_title", true);
-    m_setting_data.max_length = ini.GetInt(L"settings", L"max_length", 50);
-    m_setting_data.cover_art_size = ini.GetInt(L"settings", L"cover_art_size", 48);
-    m_setting_data.show_cover_art = ini.GetBool(L"settings", L"show_cover_art", true);
-}
-
-void CDataManager::SaveConfig() const
-{
-    utilities::CIniHelper ini(m_config_path);
-    ini.WriteBool(L"settings", L"show_artist", m_setting_data.show_artist);
-    ini.WriteBool(L"settings", L"show_title", m_setting_data.show_title);
-    ini.WriteInt(L"settings", L"max_length", m_setting_data.max_length);
-    ini.WriteInt(L"settings", L"cover_art_size", m_setting_data.cover_art_size);
-    ini.WriteBool(L"settings", L"show_cover_art", m_setting_data.show_cover_art);
-    ini.Save();
-}
-
 const CString& CDataManager::StringRes(UINT id)
 {
     if (m_string_table.find(id) == m_string_table.end())

@@ -13,7 +13,7 @@ public:
     };
 
     CNowPlayingItem();
-    ~CNowPlayingItem();
+    virtual ~CNowPlayingItem();
 
     virtual const wchar_t* GetItemName() const override;
     virtual const wchar_t* GetItemId() const override;
@@ -24,14 +24,12 @@ public:
     virtual int GetItemWidthEx(void* hDC) const override;
     virtual void DrawItem(void* hDC, int x, int y, int w, int h, bool dark_mode) override;
 
-    void SetMediaInfo(const std::wstring& artist, const std::wstring& title, HBITMAP hThumbnail, PlaybackStatus status);
+    void SetMediaInfo(const std::wstring& artist, const std::wstring& title, PlaybackStatus status);
 
 private:
     mutable std::wstring m_display_text;
     std::wstring m_artist;
     std::wstring m_title;
-    HBITMAP m_thumbnail;
-    int m_thumbnail_size;
     PlaybackStatus m_playback_status{ PlaybackStatus::Stopped };
     
     // Scrolling state

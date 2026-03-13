@@ -3,20 +3,13 @@
 #include "DataManager.h"
 
 CNowPlayingItem::CNowPlayingItem()
-    : m_thumbnail(nullptr)
-    , m_thumbnail_size(0)
-    , m_scroll_offset(0)
+    : m_scroll_offset(0)
     , m_last_scroll_time(0)
 {
 }
 
 CNowPlayingItem::~CNowPlayingItem()
 {
-    if (m_thumbnail)
-    {
-        DeleteObject(m_thumbnail);
-        m_thumbnail = nullptr;
-    }
 }
 
 const wchar_t* CNowPlayingItem::GetItemName() const
@@ -196,7 +189,7 @@ void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_
     }
 }
 
-void CNowPlayingItem::SetMediaInfo(const std::wstring& artist, const std::wstring& title, HBITMAP hThumbnail, PlaybackStatus status)
+void CNowPlayingItem::SetMediaInfo(const std::wstring& artist, const std::wstring& title, PlaybackStatus status)
 {
     if (m_artist != artist || m_title != title || m_playback_status != status)
     {
@@ -205,11 +198,4 @@ void CNowPlayingItem::SetMediaInfo(const std::wstring& artist, const std::wstrin
     m_artist = artist;
     m_title = title;
     m_playback_status = status;
-    
-    if (m_thumbnail)
-    {
-        DeleteObject(m_thumbnail);
-        m_thumbnail = nullptr;
-    }
-    m_thumbnail = hThumbnail;
 }
