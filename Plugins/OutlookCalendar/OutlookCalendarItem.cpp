@@ -18,7 +18,7 @@ const wchar_t* COutlookCalendarItem::GetItemId() const
 
 const wchar_t* COutlookCalendarItem::GetItemLableText() const
 {
-    return L"Scheduled:";
+    return L"\xD83D\xDCC5 ";
 }
 
 const wchar_t* COutlookCalendarItem::GetItemValueText() const
@@ -39,7 +39,19 @@ bool COutlookCalendarItem::IsCustomDraw() const
 int COutlookCalendarItem::GetItemWidthEx(void* hDC) const
 {
     CDC* pDC = CDC::FromHandle((HDC)hDC);
-    CSize label_size = pDC->GetTextExtent(L"Scheduled: ", 11);
+    std::wstring label = GetItemLableText();
+    CSize label_size = { 0, 0 };
+    if (!label.empty())
+    {
+        CFont font;
+        LOGFONT lf;
+        pDC->GetCurrentFont()->GetLogFont(&lf);
+        wcscpy_s(lf.lfFaceName, L"Segoe UI Symbol");
+        font.CreateFontIndirect(&lf);
+        CFont* pOldFont = pDC->SelectObject(&font);
+        label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
+        pDC->SelectObject(pOldFont);
+    }
     return label_size.cx + 150;
 }
 
@@ -53,10 +65,23 @@ void COutlookCalendarItem::DrawItem(void* hDC, int x, int y, int w, int h, bool 
     pDC->SetBkMode(TRANSPARENT);
 
     // 1. Draw static label
-    std::wstring label = L"Scheduled: ";
-    CSize label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
-    CRect label_rect(x, y, x + label_size.cx, y + h);
-    pDC->DrawText(label.c_str(), -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    std::wstring label = GetItemLableText();
+    CSize label_size = { 0, 0 };
+    if (!label.empty())
+    {
+        CFont font;
+        LOGFONT lf;
+        pDC->GetCurrentFont()->GetLogFont(&lf);
+        wcscpy_s(lf.lfFaceName, L"Segoe UI Symbol");
+        font.CreateFontIndirect(&lf);
+        CFont* pOldFont = pDC->SelectObject(&font);
+
+        label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
+        CRect label_rect(x, y, x + label_size.cx, y + h);
+        pDC->DrawText(label.c_str(), -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+
+        pDC->SelectObject(pOldFont);
+    }
 
     // 2. Draw scrolling value
     std::wstring text = GetItemValueText();

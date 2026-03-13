@@ -33,31 +33,11 @@ CDataManager::~CDataManager()
     m_exit_thread = true;
     if (m_update_thread.joinable())
         m_update_thread.join();
-    SaveConfig();
 }
 
 CDataManager& CDataManager::Instance()
 {
     return m_instance;
-}
-
-static void WritePrivateProfileInt(const wchar_t* app_name, const wchar_t* key_name, int value, const wchar_t* file_path)
-{
-    wchar_t buff[16];
-    swprintf_s(buff, L"%d", value);
-    WritePrivateProfileString(app_name, key_name, buff, file_path);
-}
-
-void CDataManager::LoadConfig(const std::wstring& config_dir)
-{
-    m_config_path = config_dir + L"OutlookCalendar.ini";
-    m_setting_data.refresh_interval = GetPrivateProfileInt(L"config", L"refresh_interval", 1, m_config_path.c_str());
-}
-
-void CDataManager::SaveConfig() const
-{
-    if (m_config_path.empty()) return;
-    WritePrivateProfileInt(L"config", L"refresh_interval", m_setting_data.refresh_interval, m_config_path.c_str());
 }
 
 const CString& CDataManager::StringRes(UINT id)
@@ -148,18 +128,19 @@ void CDataManager::UpdateData()
     }
     else if (diff_minutes < 60)
     {
-        ss << L"(" << diff_minutes << L"m)";
+        ss << L"(in " << diff_minutes << L"m)";
     }
     else if (diff_minutes < 1440) // Less than 24 hours
     {
         int hours = diff_minutes / 60;
         int mins = diff_minutes % 60;
-        ss << L"(" << hours << L"h " << mins << L"m)";
+        ss << L"(in " << hours << L"h " << mins << L"m)";
     }
     else // More than 24 hours
     {
         int days = diff_minutes / 1440;
-        ss << L"(" << days << L"d)";
+        int hours = (diff_minutes % 1440) / 60;
+        ss << L"(in " << days << L"d " << hours << L"h)";
     }
 
     m_display_string = ss.str();
@@ -175,7 +156,7 @@ void CDataManager::UpdateThreadFunc()
     while (!m_exit_thread)
     {
         std::time_t now = std::time(nullptr);
-        if (m_last_update_time == 0 || std::difftime(now, m_last_update_time) >= m_setting_data.refresh_interval * 60)
+        if (m_last_update_time == 0 || std::difftime(now, m_last_update_time) >= 60)
         {
             FetchFromOutlook();
             m_last_update_time = now;

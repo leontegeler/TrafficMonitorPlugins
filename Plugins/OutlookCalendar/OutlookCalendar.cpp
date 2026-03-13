@@ -67,15 +67,6 @@ const wchar_t* COutlookCalendar::GetInfo(PluginInfoIndex index)
 
 void COutlookCalendar::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* data)
 {
-    switch (index)
-    {
-    case ITMPlugin::EI_CONFIG_DIR:
-        //从配置文件读取配置
-        g_data.LoadConfig(std::wstring(data));
-        break;
-    default:
-        break;
-    }
 }
 
 int COutlookCalendar::GetCommandCount()
