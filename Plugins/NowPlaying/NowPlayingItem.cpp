@@ -40,16 +40,16 @@ const wchar_t* CNowPlayingItem::GetItemValueText() const
     }
 
     m_full_text.clear();
-    if (!m_artist.empty())
+    if (!m_title.empty())
     {
-        m_full_text = m_artist;
+        m_full_text = m_title;
     }
     
-    if (!m_title.empty())
+    if (!m_artist.empty())
     {
         if (!m_full_text.empty())
             m_full_text += L" - ";
-        m_full_text += m_title;
+        m_full_text += m_artist;
     }
 
     return m_full_text.c_str();
@@ -57,7 +57,7 @@ const wchar_t* CNowPlayingItem::GetItemValueText() const
 
 const wchar_t* CNowPlayingItem::GetItemValueSampleText() const
 {
-    return L"Artist Name - Song Title";
+    return L"Song Title - Artist Name";
 }
 
 bool CNowPlayingItem::IsCustomDraw() const
