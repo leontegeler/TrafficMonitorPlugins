@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "NowPlayingItem.h"
 #include "DataManager.h"
+#include <algorithm>
 
 CNowPlayingItem::CNowPlayingItem()
     : m_scroll_offset(0)
@@ -66,13 +67,16 @@ bool CNowPlayingItem::IsCustomDraw() const
 
 int CNowPlayingItem::GetItemWidthEx(void* hDC) const
 {
-    std::wstring label = GetItemLableText();
-    std::wstring text = GetItemValueText();
-    if (label.empty() && text.empty())
+    CDC* pDC = CDC::FromHandle((HDC)hDC);
+    if (pDC == nullptr)
         return 0;
 
-    CDC* pDC = CDC::FromHandle((HDC)hDC);
-    CSize label_size = { 0, 0 };
+    std::wstring label = GetItemLableText();
+    std::wstring text = GetItemValueText();
+    if (text.empty() && label.empty()) return 0;
+
+    // Calculate sizes
+    int label_width = 0;
     if (!label.empty())
     {
         CFont font;
@@ -81,10 +85,20 @@ int CNowPlayingItem::GetItemWidthEx(void* hDC) const
         wcscpy_s(lf.lfFaceName, L"Segoe UI Symbol");
         font.CreateFontIndirect(&lf);
         CFont* pOldFont = pDC->SelectObject(&font);
-        label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
+        label_width = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length())).cx;
         pDC->SelectObject(pOldFont);
     }
-    return label_size.cx + (text.empty() ? 0 : 150);
+    int text_width = pDC->GetTextExtent(text.c_str(), static_cast<int>(text.length())).cx;
+
+    int screen_width = GetSystemMetrics(SM_CXSCREEN);
+    int content_width = label_width + text_width + 8; // 8px padding
+
+    // To utilize available space on the left, we request a large width.
+    // Since we right-align in DrawItem, this effectively claims space to the left.
+    // We use a generous minimum width (25% of screen) to fulfill the request 
+    // of using available taskbar space.
+    int min_width = screen_width / 4;
+    return (std::max)(content_width, min_width);
 }
 
 void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_mode)
@@ -96,97 +110,54 @@ void CNowPlayingItem::DrawItem(void* hDC, int x, int y, int w, int h, bool dark_
     pDC->SetTextColor(textColor);
     pDC->SetBkMode(TRANSPARENT);
 
-    // 1. Draw static label (icon)
     std::wstring label = GetItemLableText();
+    std::wstring text = GetItemValueText();
+    if (text.empty() && label.empty()) return;
+
+    // Calculate sizes
     CSize label_size = { 0, 0 };
-    if (!label.empty())
+    CFont icon_font;
+    bool has_label = !label.empty();
+    if (has_label)
     {
-        CFont font;
         LOGFONT lf;
         pDC->GetCurrentFont()->GetLogFont(&lf);
         wcscpy_s(lf.lfFaceName, L"Segoe UI Symbol");
-        font.CreateFontIndirect(&lf);
-        CFont* pOldFont = pDC->SelectObject(&font);
-
+        icon_font.CreateFontIndirect(&lf);
+        CFont* pOldFont = pDC->SelectObject(&icon_font);
         label_size = pDC->GetTextExtent(label.c_str(), static_cast<int>(label.length()));
-        CRect label_rect(x, y, x + label_size.cx, y + h);
-        pDC->DrawText(label.c_str(), -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-
         pDC->SelectObject(pOldFont);
     }
-
-    // 2. Draw scrolling value
-    std::wstring text = GetItemValueText();
-    if (text.empty()) return;
-
-    int value_x = x + label_size.cx;
-    int value_w = w - label_size.cx;
-    CRect value_rect(value_x, y, x + w, y + h);
-
     CSize text_size = pDC->GetTextExtent(text.c_str(), static_cast<int>(text.length()));
 
-    if (text_size.cx <= value_w)
+    int total_content_width = label_size.cx + text_size.cx;
+
+    // Right align everything as a group within the allocated width 'w'.
+    // start_x is where the icon/label will begin.
+    int start_x = x + w - total_content_width;
+    
+    // If w is somehow smaller than our content (capped by TrafficMonitor),
+    // we must not draw outside the left boundary (x).
+    if (start_x < x) start_x = x;
+    
+    // 1. Draw label (icon)
+    if (has_label)
     {
-        // No scrolling needed
-        pDC->DrawText(text.c_str(), -1, &value_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
-        m_scroll_offset = 0;
-        m_scroll_reverse = false;
-        m_pause_end_time = 0;
+        CFont* pOldFont = pDC->SelectObject(&icon_font);
+        CRect label_rect(start_x, y, start_x + label_size.cx, y + h);
+        pDC->DrawText(label.c_str(), -1, &label_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+        pDC->SelectObject(pOldFont);
     }
-    else
-    {
-        // Ping-pong scrolling logic
-        DWORD now = GetTickCount();
-        if (m_last_scroll_time == 0) m_last_scroll_time = now;
-
-        if (now >= m_pause_end_time)
-        {
-            if (now - m_last_scroll_time > 16) // ~60 FPS
-            {
-                int max_scroll = text_size.cx - value_w;
-                const DWORD pause_duration = 1500; // 1.5s pause
-
-                if (!m_scroll_reverse)
-                {
-                    m_scroll_offset++;
-                    if (m_scroll_offset >= max_scroll)
-                    {
-                        m_scroll_offset = max_scroll;
-                        m_scroll_reverse = true;
-                        m_pause_end_time = now + pause_duration;
-                    }
-                }
-                else
-                {
-                    m_scroll_offset--;
-                    if (m_scroll_offset <= 0)
-                    {
-                        m_scroll_offset = 0;
-                        m_scroll_reverse = false;
-                        m_pause_end_time = now + pause_duration;
-                    }
-                }
-                m_last_scroll_time = now;
-            }
-        }
-        else
-        {
-            // During pause, just update last scroll time to avoid sudden jump after pause
-            m_last_scroll_time = now;
-        }
-
-        int draw_x = value_x - m_scroll_offset;
-
-        // Clip the drawing area to the value part only
-        int save_dc = pDC->SaveDC();
-        CRgn clipRgn;
-        clipRgn.CreateRectRgn(value_rect.left, value_rect.top, value_rect.right, value_rect.bottom);
-        pDC->SelectClipRgn(&clipRgn);
-
-        pDC->TextOut(draw_x, y + (h - text_size.cy) / 2, text.c_str(), static_cast<int>(text.length()));
-
-        pDC->RestoreDC(save_dc);
-    }
+    
+    // 2. Draw text
+    // The text starts immediately after the label.
+    CRect value_rect(start_x + label_size.cx, y, x + w, y + h);
+    pDC->DrawText(text.c_str(), -1, &value_rect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX);
+    
+    // Reset scrolling state
+    m_scroll_offset = 0;
+    m_scroll_reverse = false;
+    m_pause_end_time = 0;
 }
 
 void CNowPlayingItem::SetMediaInfo(const std::wstring& artist, const std::wstring& title, PlaybackStatus status)
