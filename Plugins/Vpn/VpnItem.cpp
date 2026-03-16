@@ -20,14 +20,14 @@ const wchar_t* CVpnItem::GetItemId() const
 const wchar_t* CVpnItem::GetItemLableText() const
 {
     if (m_value.empty())
-        return L"";
+        return L" ";
     return L"\u2191\u2193 ";
 }
 
 const wchar_t* CVpnItem::GetItemValueText() const
 {
     if (m_value.empty())
-        return L"";
+        return L" ";
     m_display_text = L"Connected to " + m_value;
     return m_display_text.c_str();
 }

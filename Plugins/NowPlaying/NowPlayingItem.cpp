@@ -29,14 +29,14 @@ const wchar_t* CNowPlayingItem::GetItemLableText() const
         return L"\u23F5 ";
     if (m_playback_status == PlaybackStatus::Paused)
         return L"\u23F8 ";
-    return L"";
+    return L" ";
 }
 
 const wchar_t* CNowPlayingItem::GetItemValueText() const
 {
     if (m_playback_status == PlaybackStatus::Stopped || (m_artist.empty() && m_title.empty()))
     {
-        return L"";
+        return L" ";
     }
 
     m_full_text.clear();

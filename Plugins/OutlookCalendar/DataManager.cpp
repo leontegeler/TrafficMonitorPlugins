@@ -19,6 +19,7 @@
 CDataManager CDataManager::m_instance;
 
 CDataManager::CDataManager()
+    : m_display_string(L" ")
 {
     //初始化DPI
     HDC hDC = ::GetDC(HWND_DESKTOP);
